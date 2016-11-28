@@ -12,15 +12,20 @@ Product {
         var m3 = /^stm32f[1]\d\d/i.test(deviceName);
         var archFlags = [];
         if(m3) archFlags = ["-mthumb", "-mcpu=cortex-m3"];
+        var driver = "unknown";
+        if(/^stm32f100/i.test(deviceName)) driver = "stm32f100";
         return {
             archFlags : archFlags,
             ldScript  : dn + "_FLASH.ld",
             family    : family,
             devmem    : devmem,
             defines   : [devmem.toUpperCase().replace(/X/, 'x')],
+            driver    : driver,
+            driverDir : path + "/drivers/" + driver + "/",
             includePaths : [
                 path + "/cmsis/Include",
-                path + "/cmsis/Device/ST/" + family + "/Include"
+                path + "/cmsis/Device/ST/" + family + "/Include",
+                path + "/drivers/" + driver
             ]
 
         }
