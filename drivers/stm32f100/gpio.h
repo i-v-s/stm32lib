@@ -32,29 +32,40 @@ enum IO_Pull
     IO_Pulldown = 2
 };
 
-template<uint32_t gpio, uint32_t mask>
+enum IO_Enum
+{
+    IO_A = (uintptr_t)GPIOA,
+    IO_B = (uintptr_t)GPIOB,
+    IO_C = (uintptr_t)GPIOC,
+    IO_D = (uintptr_t)GPIOD,
+    IO_E = (uintptr_t)GPIOE
+};
+
+template<IO_Enum gpio, uint32_t mask>
 struct Pins
 {
+    static inline constexpr uint16_t getMask() { return mask; }
+    static inline constexpr GPIO_TypeDef * p(IO_Enum e) { return (GPIO_TypeDef *) e;}
     inline uint32_t operator =(uint32_t b)
     {
-        ((GPIO_TypeDef *)gpio)->BSRR = (b & mask) | ((~b && mask) << 16);
+        p(gpio)->BSRR = (b & mask) | ((~b && mask) << 16);
         return b;
     }
     inline operator uint32_t()
     {
-        return *(uint16_t *)(&((GPIO_TypeDef *)gpio)->IDR) & mask;
+        return *(uint16_t *)(&(p(gpio))->IDR) & mask;
     }
-    constexpr uint64_t mask4()
+    static constexpr uint64_t mask4()
     {
         uint64_t o = 0;
-        for (uint32_t m = mask; m; m <<= 1) o = (o << 4) | ((m >> 15) & 1);
+        for (int x = 0; x < 16; x++)
+            o |= (uint64_t((mask >> x) & 1) << (x * 4));
         return o;
     }
 
     template<IO_Mode mode, IO_Speed speed = IO_2MHz, bool openDrain = false, IO_Pull pull = IO_NoPull>
     inline void init()
     {
-        GPIO_TypeDef * const _gpio = (GPIO_TypeDef *) gpio;
         static_assert(mask <= 0xFFFF, "Wrong pins mask");
         const uint64_t m4 = mask4();
         const uint64_t mm = m4 | (m4 << 1) | (m4 << 2) | (m4 << 3);
@@ -79,11 +90,11 @@ struct Pins
             break;
         }
 
-        _gpio->CRL = (_gpio->CRL & (uint32_t)mm) | (uint32_t)cr;
-        _gpio->CRH = (_gpio->CRH & (uint32_t)(mm >> 32)) | (uint32_t)(cr >> 32);
+        p(gpio)->CRL = (p(gpio)->CRL & ~(uint32_t)mm) | (uint32_t)cr;
+        p(gpio)->CRH = (p(gpio)->CRH & ~(uint32_t)(mm >> 32)) | (uint32_t)(cr >> 32);
     }
-    inline void set(void) { ((GPIO_TypeDef *) gpio)->BSRR = mask; }
-    inline void clear(void) { ((GPIO_TypeDef *) gpio)->BRR = mask; }
+    inline void set(void)   { p(gpio)->BSRR = mask; }
+    inline void clear(void) { p(gpio)->BRR  = mask; }
 };
 
 #endif // PIN_H
