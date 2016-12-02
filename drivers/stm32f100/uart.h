@@ -54,10 +54,15 @@ public:
         u().CR2 = 0;
         u().CR3 = 0;
     }
-    void send(uint32_t data)
+    void sendSync(uint32_t data)
     {
         while(!(u().SR & USART_SR_TXE));
         u().DR = data;
+    }
+    uint32_t recvSync()
+    {
+        while(!(u().SR & USART_SR_RXNE));
+        return u().DR;
     }
 
     //void rxNotEmpty();
