@@ -24,21 +24,32 @@ class Usart
 public:
     Queue<char, 64> tx;
     static constexpr USART_TypeDef &u() { return * (USART_TypeDef *) eu; }
+    typedef void (* OnChar) (uint32_t);
+    static inline void irq()
+    {
+        if(onCharReceived && (u().SR & USART_SR_RXNE))
+            onCharReceived(u().DR);
+    }
 private:
-    char rxData[512];
-    char * volatile rxPos;
-    USART_TypeDef * USART;
-    DMA_TypeDef * DMA;
-    DMA_Channel_TypeDef * DMA_RX, * DMA_TX;
-    char * txPos;
+    static OnChar onCharReceived;
+
+    //char rxData[512];
+    //char * volatile rxPos;
+    //USART_TypeDef * USART;
+    //DMA_TypeDef * DMA;
+    //DMA_Channel_TypeDef * DMA_RX, * DMA_TX;
+    //char * txPos;
     static char * transmit(void * obj, char * start, char * end) { return nullptr; }
 public:
-
-    Receiver<char> rxOutput;
-    Usart(): txPos(0), rxOutput(0) { tx.output.set(&transmit, this); rxPos = rxData;}
+    static void setOnCharReceived(OnChar onChar) {
+        onCharReceived = onChar;
+        u().CR1 |= USART_CR1_RXNEIE;
+    }
+    //Receiver<char> rxOutput;
+    Usart() {}//: txPos(0), rxOutput(0) { tx.output.set(&transmit, this); rxPos = rxData;}
     //void uartInit(USART_TypeDef * USART, DMA_TypeDef * DMA, DMA_Channel_TypeDef * DMA_RX, DMA_Channel_TypeDef * DMA_TX);
     template<class Clock, uint32_t baud, uint8_t length = 8, Parity parity = PNone>
-    void init() {
+    static void init() {
         u().CR1 = USART_CR1_UE; // Включаем USART
 
         constexpr uint32_t pclk = (eu == Usart1) ? Clock::pclk2 : Clock::pclk1;
@@ -59,10 +70,18 @@ public:
         while(!(u().SR & USART_SR_TXE));
         u().DR = data;
     }
-    uint32_t recvSync()
+    inline bool rxne()
+    {
+        return u().SR & USART_SR_RXNE;
+    }
+    inline uint32_t recv()
+    {
+        return *(uint16_t *)&u().DR;
+    }
+    inline uint32_t recvSync()
     {
         while(!(u().SR & USART_SR_RXNE));
-        return u().DR;
+        return *(uint16_t *)&u().DR;
     }
 
     //void rxNotEmpty();

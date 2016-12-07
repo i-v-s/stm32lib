@@ -18,7 +18,16 @@ struct Timer
 {
     __IO uint32_t *CCR;
     static inline constexpr TIM_TypeDef &p() { return *(TIM_TypeDef *) etim; }
-    static inline constexpr volatile uint32_t *ccr() { return &p().CCR1; }
+    //static inline constexpr volatile uint32_t *ccr() { return &p().CCR1; }
+    template<int c> inline void ccr(uint32_t v)
+    {
+        switch(c) {
+        case 0: p().CCR1 = v;
+        case 1: p().CCR2 = v;
+        case 2: p().CCR3 = v;
+        case 3: p().CCR4 = v;
+        }
+    }
     template<unsigned int mask>
     static void setPwmMode()
     {

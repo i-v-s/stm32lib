@@ -46,4 +46,18 @@ public:
     }
 };
 
+template<class Clock>
+inline void setSysTick(float period)
+{
+    //if (Clock::hclk)
+    //static_assert(period > 0 && period * (Clock::hclk / 8) <= 0xFFFFFF, "Wrong period");
+    SysTick->LOAD = uint32_t(period * (Clock::hclk / 8));
+    SysTick->CTRL = SysTick_CTRL_ENABLE;
+}
+
+inline bool sysTickFlag()
+{
+    return SysTick->CTRL & SysTick_CTRL_COUNTFLAG;
+}
+
 #endif // CLOCK_H

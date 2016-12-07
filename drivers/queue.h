@@ -33,7 +33,7 @@ public:
     Pullable * source;
     Receiver<T> output;
     inline int length() const {T * d = dst; return (d - src) & (SIZE - 1);}
-    Queue(): src(data), dst(data), newDst(data), output(0), pullWork(false), source(0) {}
+    Queue(): src(data), dst(data), newDst(data), pullWork(false), source(0), output(0) {}
     virtual void pull()
     {
         if(!output.method || pullWork) return;
