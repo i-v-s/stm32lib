@@ -9,13 +9,6 @@ enum IO_Mode
     IO_In = 1,
     IO_Out = 2,
     IO_AF0 = 8,
-    IO_AF1 = 9,
-    IO_AF2 = 10,
-    IO_AF3 = 11,
-    IO_AF4 = 12,
-    IO_AF5 = 13,
-    IO_AF6 = 14,
-    IO_AF7 = 15
 };
 
 enum IO_Speed
