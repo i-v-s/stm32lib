@@ -37,6 +37,8 @@ Product {
     //cpp.linkerFlags: device.archFlags
     //cpp.includePaths : device.includePaths
     //cpp.defines: ["STM32F103xB"]
+    cpp.linkerName: "g++"
+    cpp.linkerMode: "manual"
 
     Group {
         name : "CMSIS"
