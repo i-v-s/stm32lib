@@ -13,7 +13,9 @@ enum ClockSource
     CS_PLL,
     CS_HCLK,
     CS_PCLK1,
-    CS_PCLK2
+    CS_PCLK2,
+    CS_PCLK1_TIM,
+    CS_PCLK2_TIM
 };
 
 namespace Clock {
@@ -182,18 +184,102 @@ template<uint32_t freq = 72000000,
          uint32_t PCLK2 = HCLK>
 using SystemClockHSE8 = SystemClockHSE<freq, HCLK, PCLK1, PCLK2, 8000000>;
 
+template<uint32_t HSE = 8000000>
+class SystemClocksCurrent
+{
+private:
+    uint32_t sysClk, pllClk, hClk, pClk1, pClk2, pClk1Tim, pClk2Tim;
+    static inline uint32_t getPLLSrcFreq(uint32_t cf)
+    {
+        if (cf & RCC_CFGR_PLLSRC) // HSE
+            return (cf & RCC_CFGR_PLLXTPRE) ? HSE / 2 : HSE;
+        else // HSI
+            return 8000000 / 2;
+    }
+    static inline uint32_t getPLLMul(uint32_t cf)
+    {
+        uint32_t m = (cf >> RCC_CFGR_PLLMULL_Pos) & 15;
+        return (m == 15) ? 16 : (m + 2);
+    }
+    static inline uint32_t getHPre(uint32_t cf)
+    {
+        switch(cf & RCC_CFGR_HPRE) {
+        default: return 1;
+        case 8: return 2;
+        case 9: return 4;
+        case 10: return 8;
+        case 11: return 16;
+        case 12: return 64;
+        case 13: return 128;
+        case 14: return 256;
+        case 15: return 512;
+        }
+    }
+    template<int bus>
+    static inline uint32_t getPPre(uint32_t cf)
+    {
+        static_assert(bus == 1 || bus == 2, "Wrong bus number");
+        switch((cf >> ((bus == 1) ? RCC_CFGR_PPRE1_Pos : RCC_CFGR_PPRE2_Pos)) & 7) {
+        default: return 1;
+        case 4: return 2;
+        case 5: return 4;
+        case 6: return 8;
+        case 7: return 16;
+        }
+    }
+public:
+    SystemClocksCurrent() {}
+    void update()
+    {
+        uint32_t cf = RCC->CFGR;
+        pllClk = getPLLSrcFreq(cf) * getPLLMul(cf);
+        switch(cf & RCC_CFGR_SWS_Msk) {
+        case 0:              sysClk = 8000000; break; // HSI
+        case RCC_CFGR_SWS_0: sysClk = HSE;     break;
+        case RCC_CFGR_SWS_1: sysClk = pllClk;  break;
+        }
+        hClk = sysClk / getHPre(cf);
+        uint32_t pre1 = getPPre<1>(cf), pre2 = getPPre<2>(cf);
+        pClk1 = hClk / pre1;
+        pClk1Tim = (pre1 == 1) ? pClk1 : (pClk1 * 2);
+        pClk2 = hClk / pre2;
+        pClk2Tim = (pre2 == 1) ? pClk2 : (pClk2 * 2);      
+    }
+    template<ClockSource cs> inline uint32_t getFrequency() const
+    {
+        switch(cs) {
+        default: return 0;
+        case CS_SysClk: return sysClk;
+        case CS_HSI: return 8000000;
+        case CS_HSE: return HSE;
+        case CS_PLLdiv2: return pllClk / 2;
+        case CS_PLL: return pllClk;
+        case CS_HCLK: return hClk;
+        case CS_PCLK1: return pClk1;
+        case CS_PCLK2: return pClk2;
+        case CS_PCLK1_TIM: return pClk1Tim;
+        case CS_PCLK2_TIM: return pClk2Tim;
+        }
+    }
+};
+
+template<typename 
+
+template<uintptr_t device>
+ClockSource getClockSource();
+
 template<class Clock>
 inline void setSysTick(float period)
 {
     //if (Clock::hclk)
     //static_assert(period > 0 && period * (Clock::hclk / 8) <= 0xFFFFFF, "Wrong period");
     SysTick->LOAD = uint32_t(period * (Clock::hclk / 8));
-    SysTick->CTRL = SysTick_CTRL_ENABLE;
+    SysTick->CTRL = SysTick_CTRL_ENABLE_Msk;
 }
 
 inline bool sysTickFlag()
 {
-    return SysTick->CTRL & SysTick_CTRL_COUNTFLAG;
+    return SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk;
 }
 
 #endif // CLOCK_H

@@ -2,6 +2,7 @@
 #define TIMER_H
 
 #include <stm32f1xx.h>
+//#include "clock.h"
 
 enum ETimer
 {
@@ -35,19 +36,52 @@ enum ETrigger
 
 }*/
 
-template<ETimer etim>
-struct Timer
+// APB1 timers:
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM2>() { return CS_PCLK1_TIM; };
+#ifdef TIM3
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM3>() { return CS_PCLK1_TIM; };
+#endif
+#ifdef TIM4
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM4>() { return CS_PCLK1_TIM; };
+#endif
+
+// APB2 timers
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM1>() { return CS_PCLK2_TIM; };
+#ifdef TIM8
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM8>() { return CS_PCLK2_TIM; };
+#endif
+#ifdef TIM9
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM9>() { return CS_PCLK2_TIM; };
+#endif
+#ifdef TIM10
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM10>() { return CS_PCLK2_TIM; };
+#endif
+#ifdef TIM11
+template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM11>() { return CS_PCLK2_TIM; };
+#endif
+
+
+template<uintptr_t tim, typename Clock, const Clock *clock = nullptr>
+struct Timer 
 {
-    __IO uint32_t *CCR;
-    static inline constexpr TIM_TypeDef &p() { return *(TIM_TypeDef *) etim; }
-    //static inline constexpr volatile uint32_t *ccr() { return &p().CCR1; }
-    template<int c> inline void ccr(uint32_t v)
+    template<uint32_t frequency> void setFrequency()
     {
+        uint32_t src = clock->template getFrequency<getClockSource<tim>()>();
+        p().PSC = frequency / src - 1;
+    }
+        
+    __IO uint32_t *CCR;
+    static inline constexpr TIM_TypeDef &p() { return *(TIM_TypeDef *) tim; }
+    //static inline constexpr volatile uint32_t *ccr() { return &p().CCR1; }
+    template<int c> inline __IO uint32_t &ccr()
+    {
+        static_assert(c >= 1 && c <= 4);
         switch(c) {
-        case 0: p().CCR1 = v;
-        case 1: p().CCR2 = v;
-        case 2: p().CCR3 = v;
-        case 3: p().CCR4 = v;
+        default:
+        case 1: return p().CCR1;
+        case 2: return p().CCR2;
+        case 3: return p().CCR3;
+        case 4: return p().CCR4;
         }
     }
     template<unsigned int mask>

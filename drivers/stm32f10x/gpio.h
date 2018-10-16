@@ -90,4 +90,10 @@ struct Pins
     inline void clear(void) { p(gpio)->BRR  = mask; }
 };
 
+template<IO_Enum gpio, uint32_t idx>
+struct Pin : public Pins<gpio, (1 << idx)>
+{
+	
+}
+
 #endif // PIN_H
