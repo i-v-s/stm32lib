@@ -25,28 +25,19 @@ enum IO_Pull
     IO_Pulldown = 2
 };
 
-enum IO_Enum
-{
-    IO_A = (uintptr_t)GPIOA,
-    IO_B = (uintptr_t)GPIOB,
-    IO_C = (uintptr_t)GPIOC,
-    IO_D = (uintptr_t)GPIOD,
-    IO_E = (uintptr_t)GPIOE
-};
-
-template<IO_Enum gpio, uint32_t mask>
+template<uintptr_t gpio, uint32_t mask>
 struct Pins
 {
     static inline constexpr uint16_t getMask() { return mask; }
-    static inline constexpr GPIO_TypeDef * p(IO_Enum e) { return (GPIO_TypeDef *) e;}
+    static inline constexpr GPIO_TypeDef &p() { return *(GPIO_TypeDef *)gpio;}
     inline uint32_t operator =(uint32_t b)
     {
-        p(gpio)->BSRR = (b & mask) | ((~b && mask) << 16);
+        p().BSRR = (b & mask) | ((~b && mask) << 16);
         return b;
     }
     inline operator uint32_t()
     {
-        return *(uint16_t *)(&(p(gpio))->IDR) & mask;
+        return *(uint16_t *)(p().IDR) & mask;
     }
     static constexpr uint64_t mask4()
     {
@@ -57,7 +48,7 @@ struct Pins
     }
 
     template<IO_Mode mode, IO_Speed speed = IO_2MHz, bool openDrain = false, IO_Pull pull = IO_NoPull>
-    inline void init()
+    static inline void configure()
     {
         static_assert(mask <= 0xFFFF, "Wrong pins mask");
         const uint64_t m4 = mask4();
@@ -83,17 +74,34 @@ struct Pins
             break;
         }
 
-        p(gpio)->CRL = (p(gpio)->CRL & ~(uint32_t)mm) | (uint32_t)cr;
-        p(gpio)->CRH = (p(gpio)->CRH & ~(uint32_t)(mm >> 32)) | (uint32_t)(cr >> 32);
+        p().CRL = (p().CRL & ~(uint32_t)mm) | (uint32_t)cr;
+        p().CRH = (p().CRH & ~(uint32_t)(mm >> 32)) | (uint32_t)(cr >> 32);
     }
-    inline void set(void)   { p(gpio)->BSRR = mask; }
-    inline void clear(void) { p(gpio)->BRR  = mask; }
+    static inline void set(void)   { p().BSRR = mask; }
+    static inline void clear(void) { p().BRR  = mask; }
 };
 
-template<IO_Enum gpio, uint32_t idx>
-struct Pin : public Pins<gpio, (1 << idx)>
+template<uintptr_t gpio, uint32_t idx>
+struct Pin : public Pins<gpio, (1 << idx)> {};
+
+template<typename Device, typename Pin> struct Remap;
+template<typename... Args> struct Remaps;
+template<> struct Remaps<> { enum { maprMsk = 0, maprVal = 0 }; };
+template<typename Remap, typename... Args> struct Remaps<Remap, Args...> {
+    typedef Remaps<Args...> Next;
+    static_assert(!(uint32_t(Remap::maprMsk) & uint32_t(Next::maprMsk) & (uint32_t(Remap::maprVal) ^ uint32_t(Next::maprVal))), "Conflicting remaps");
+    enum {
+        maprMsk = uint32_t(Remap::maprMsk) | uint32_t(Next::maprMsk),
+        maprVal = uint32_t(Remap::maprVal) | uint32_t(Next::maprVal)
+    };
+};
+
+template<typename... Args>
+inline void configureRemaps()
 {
-	
+    typedef Remaps<Args...> R;
+    static_assert(R::maprMsk, "Nothing to remap!");
+    AFIO->MAPR = (AFIO->MAPR & ~R::maprMsk) | R::maprVal;
 }
 
 #endif // PIN_H

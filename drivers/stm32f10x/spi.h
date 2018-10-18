@@ -47,13 +47,13 @@ public:
         case 256: return 7;
         }
     }
-    template<typename... Args> void setOptions()
+    template<typename... Args> static inline void setOptions()
     {
-      typedef Options<Args...> O;
-      p().CR1 = (p().CR1 & ~O::mask) | O::value;
+        typedef Options<Args...> O;
+        p().CR1 = (p().CR1 & ~O::mask) | O::value;
     }
     
-    template<uint32_t rate> inline void setBoudrate() 
+    template<uint32_t rate> static inline void setBoudrate() 
     {
         p().CR1 = p().CR1 & ~SPI_CR1_BR_Msk | boudrate2cr1<rate>();
     }

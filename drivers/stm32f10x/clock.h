@@ -263,7 +263,28 @@ public:
     }
 };
 
-template<typename 
+template<typename... Devices> struct DevList;
+template<> struct DevList<> { enum { ahb = 0, apb1 = 0, apb2 = 0 }; };
+template<typename Dev, typename... Devs> struct DevList<Dev, Devs...>
+{
+    typedef DevList<Devs...> Next;
+    enum {
+        ahb = Next::ahb | Dev::ahb(),
+        apb1 = Next::apb1 | Dev::apb1(),
+        apb2 = Next::apb2 | Dev::apb2()
+    };
+};
+
+
+template<typename... Devices>
+void enableDevices()
+{
+    typedef DevList<Devices...> L;
+    static_assert(L::ahb | L::apb1 | L::apb2, "Nothing to enable!");
+    if (L::ahb) RCC->AHBENR |= L::ahb;
+    if (L::apb1) RCC->APB1ENR |= L::apb1;
+    if (L::apb2) RCC->APB2ENR |= L::apb2;
+}
 
 template<uintptr_t device>
 ClockSource getClockSource();
