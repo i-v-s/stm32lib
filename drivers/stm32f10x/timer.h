@@ -105,7 +105,7 @@ struct Timer
     template<uint32_t frequency> static inline void setFrequency()
     {
         uint32_t src = clock->template getFrequency<getClockSource<tim>()>();
-        p().PSC = frequency / src - 1;
+        p().PSC = src / frequency - 1;
     }
         
     __IO uint32_t *CCR;
