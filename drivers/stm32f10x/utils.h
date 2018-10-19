@@ -22,8 +22,8 @@ template<typename Arg, typename... Args> struct Options2<Arg, Args...>
     enum { 
         cr1m = uint32_t(Next::cr1m) | uint32_t(Arg::cr1m),
         cr2m = uint32_t(Next::cr2m) | uint32_t(Arg::cr2m),
-        cr1 = uint32_t(Next::cr1m) | uint32_t(Arg::cr1),
-        cr2 = uint32_t(Next::cr2m) | uint32_t(Arg::cr2)
+        cr1 = uint32_t(Next::cr1) | uint32_t(Arg::cr1),
+        cr2 = uint32_t(Next::cr2) | uint32_t(Arg::cr2)
     };
 };
 
