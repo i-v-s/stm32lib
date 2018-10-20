@@ -17,14 +17,29 @@ template<> inline constexpr ClockSource getClockSource<(uintptr_t)SPI3>() { retu
 
 namespace spi_ {
 // SPI options
-    struct Master { enum { flag = SPI_CR1_MSTR, value = SPI_CR1_MSTR }; };
-    struct Slave  { enum { flag = SPI_CR1_MSTR, value = 0 }; };
-    template<int pol> struct ClockPolarity { enum { flag = SPI_CR1_CPOL, value = pol ? SPI_CR1_CPOL : 0 }; };
-    template<int phase> struct ClockPhase { enum { flag = SPI_CR1_CPHA, value = phase - 1 }; };
-    template<bool en = true> struct Enable { enum { flag = SPI_CR1_SPE, value = en ? SPI_CR1_SPE : 0 }; };
-    struct Disable { enum { flag = SPI_CR1_SPE, value = 0 }; };
-    struct ReceiveOnly { enum { flag = SPI_CR1_RXONLY, value = SPI_CR1_RXONLY }; };
+    struct Master { enum { cr1m = SPI_CR1_MSTR, cr1 = cr1m, cr2m = 0, cr2 = 0 }; };
+    struct Slave  { enum { cr1m = SPI_CR1_MSTR, cr1 = 0, cr2m = 0, cr2 = 0 }; };
+    template<int pol> struct ClockPolarity { static_assert(pol == 0 || pol == 1, "Wrong polarity"); enum { cr1m = SPI_CR1_CPOL, cr1 = pol ? cr1m : 0,         cr2m = 0, cr2 = 0 }; };
+    template<int phase> struct ClockPhase { static_assert(phase == 1 || phase == 2, "Wrong phase"); enum { cr1m = SPI_CR1_CPHA, cr1 = (phase - 1) ? cr1m : 0, cr2m = 0, cr2 = 0 }; };
+    template<bool en = true> struct Enable { enum { cr1m = SPI_CR1_SPE, cr1 = en ? cr1m : 0, cr2m = 0, cr2 = 0 }; };
+    struct Disable { enum { cr1m = SPI_CR1_SPE, cr1 = 0, cr2m = 0, cr2 = 0 }; };
+    struct ReceiveOnly { enum { cr1m = SPI_CR1_RXONLY, cr1 = cr1m, cr2m = 0, cr2 = 0 }; };
+    template<bool ss = true> struct SlaveSelect { enum { cr1m = SPI_CR1_SSM | SPI_CR1_SSI, cr1 = SPI_CR1_SSM | (ss ? 0 : SPI_CR1_SSI), cr2m = 0, cr2 = 0 }; };
     //struct OnlyReceive { enum { flag = SPI_CR1_RXONLY, value = 1 }; };
+
+#ifdef TEST_TEMPLATES
+    static_assert(Options2<SlaveSelect<true>>::cr1m == (SPI_CR1_SSM | SPI_CR1_SSI), "Wrong mask!");
+    static_assert(Options2<SlaveSelect<true>>::cr1  == SPI_CR1_SSM, "Wrong value!");
+    static_assert(Options2<Enable<true>>::cr1m == SPI_CR1_SPE, "Wrong mask!");
+    static_assert(Options2<Enable<true>>::cr1  == SPI_CR1_SPE, "Wrong value!");
+    static_assert(Options2<Enable<true>, ClockPolarity<0>>::cr1m == (SPI_CR1_SPE | SPI_CR1_CPOL), "Wrong mask!");
+    static_assert(Options2<Enable<true>, ClockPolarity<0>>::cr1  == SPI_CR1_SPE, "Wrong value!");
+    static_assert(Options2<ClockPhase<2>, Enable<true>, ReceiveOnly>::cr1m == (SPI_CR1_CPHA | SPI_CR1_SPE | SPI_CR1_RXONLY), "Wrong mask!");
+    static_assert(Options2<ClockPhase<2>, Enable<true>, ReceiveOnly>::cr1  == (SPI_CR1_CPHA | SPI_CR1_SPE | SPI_CR1_RXONLY), "Wrong value!");
+    static_assert(Options2<Slave, ClockPolarity<0>, ClockPhase<2>, Enable<true>, ReceiveOnly>::cr1m == (SPI_CR1_MSTR | SPI_CR1_CPOL | SPI_CR1_CPHA | SPI_CR1_SPE | SPI_CR1_RXONLY), "Wrong mask!");
+    static_assert(Options2<Slave, ClockPolarity<0>, ClockPhase<2>, Enable<true>, ReceiveOnly>::cr1  == (                              SPI_CR1_CPHA | SPI_CR1_SPE | SPI_CR1_RXONLY), "Wrong value!");
+    static_assert(Options2<Slave, ClockPolarity<0>, ClockPhase<2>, Enable<true>, ReceiveOnly>::cr2m == 0, "Wrong mask!");
+#endif    
 }
 
 template<uintptr_t spi, typename Clock, const Clock *clock = nullptr>
@@ -47,10 +62,9 @@ public:
         case 256: return 7;
         }
     }
-    template<typename... Args> static inline void setOptions()
+    template<typename... Args> static inline void configure()
     {
-        typedef Options<Args...> O;
-        p().CR1 = (p().CR1 & ~O::mask) | O::value;
+        Options2<Args...>::configure(p().CR1, p().CR2);
     }
     
     template<uint32_t rate> static inline void setBoudrate() 
@@ -68,6 +82,7 @@ public:
 #endif
         }
     }
+    inline static uint32_t blockingRead() { while(!(p().SR & SPI_SR_RXNE)); return p().DR; }
     inline static constexpr uint32_t apb2() { return (spi == uintptr_t(SPI1)) ? RCC_APB2ENR_SPI1EN : 0; }
     static_assert(apb1() ^ apb2(), "No bus specified for spi!");
 };

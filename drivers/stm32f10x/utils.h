@@ -8,9 +8,10 @@ template<typename... Args> struct Options;
 template<> struct Options<> { enum { mask = 0, value = 0 }; };
 template<typename Arg, typename... Args> struct Options<Arg, Args...>
 {
+    typedef Options<Args...> Next;
     enum { 
-        mask = uint32_t(Options<Args...>::mask) | uint32_t(Arg::flag),
-        value = uint32_t(Options<Args...>::value) | uint32_t(Arg::value)// ? uint32_t(Arg::flag) : 0)
+        mask  = uint32_t(Next::mask)  | uint32_t(Arg::flag),
+        value = uint32_t(Next::value) | uint32_t(Arg::value)
     };
 };
 
@@ -25,6 +26,13 @@ template<typename Arg, typename... Args> struct Options2<Arg, Args...>
         cr1 = uint32_t(Next::cr1) | uint32_t(Arg::cr1),
         cr2 = uint32_t(Next::cr2) | uint32_t(Arg::cr2)
     };
+    template<typename T> static inline void configure(T &CR1, T &CR2) {
+        static_assert(cr1m || cr2m, "Nothing to configure");
+        if (cr1m)
+            CR1 = (CR1 & ~cr1m) | cr1;
+        if (cr2m)
+            CR2 = (CR2 & ~cr2m) | cr2;
+    }
 };
 
 

@@ -36,10 +36,7 @@ struct Pins
         return b;
     }
     static inline uint32_t get() { return p().IDR & mask; }
-    inline operator uint32_t()
-    {
-        return *(uint16_t *)(p().IDR) & mask;
-    }
+    inline operator uint32_t() { return p().IDR & mask; }
     static constexpr uint64_t mask4()
     {
         uint64_t o = 0;
