@@ -61,6 +61,9 @@ template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM10>() { ret
 template<> inline constexpr ClockSource getClockSource<(uintptr_t)TIM11>() { return CS_PCLK2_TIM; };
 #endif
 
+template<uintptr_t tim, typename Clock, const Clock *clock = nullptr> struct Timer;
+template<class Timer_, uint8_t channel> class TimerChannel;
+
 namespace tim_ {
     // Timer options
     template<bool on = true> struct Preload { enum { cr1m = TIM_CR1_ARPE, cr1 = on ? cr1m : 0, cr2m = 0, cr2 = 0}; };
@@ -74,12 +77,21 @@ namespace tim_ {
     template<class Channel> struct SendCompare { enum { cr1m = 0, cr1 = 0, cr2m = TIM_CR2_MMS_Msk, cr2 = ((Channel::idx + 3) << TIM_CR2_MMS_Pos) }; };
     
     // Timer sources
+    template<typename Src> struct SrcInfo;
+    template<uintptr_t t, typename Clock, const Clock *clock> struct SrcInfo<Timer<t, Clock, clock>> 
+    { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 0, tim = t }; };
+    template<class Timer, uint8_t channel> struct SrcInfo<TimerChannel<Timer, channel>>
+    { 
+        static_assert(channel == 1 || channel == 2, "Wrong source channel");
+        enum { smcrMsk = TIM_SMCR_SMS_Msk | TIM_SMCR_TS_Msk, smcrVal = (channel + 4) << TIM_SMCR_TS_Pos, tim = 0/*Timer::getTim()*/ }; 
+    };
+    
     struct InternalClock { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 0, tim = 0 }; };
     template<int mode> struct Encoder { static_assert(mode >= 1 && mode <= 3, "Wrong encoder mode!"); enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = mode << TIM_SMCR_SMS_Pos, tim = 0 }; };
-    template<typename Src> struct Reset    { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 4 << TIM_SMCR_SMS_Pos, tim = Src::getTim() }; };
-    template<typename Src> struct Gated    { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 5 << TIM_SMCR_SMS_Pos, tim = Src::getTim() }; };
-    template<typename Src> struct Trigger  { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 6 << TIM_SMCR_SMS_Pos, tim = Src::getTim() }; };
-    template<typename Src> struct External { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 7 << TIM_SMCR_SMS_Pos, tim = Src::getTim() }; };
+    template<typename Src> struct Reset    { typedef SrcInfo<Src> Info; enum { smcrMsk = Info::smcrMsk, smcrVal = uint32_t(Info::smcrVal) | (4 << TIM_SMCR_SMS_Pos), tim = Info::tim }; };
+    template<typename Src> struct Gated    { typedef SrcInfo<Src> Info; enum { smcrMsk = Info::smcrMsk, smcrVal = uint32_t(Info::smcrVal) | (5 << TIM_SMCR_SMS_Pos), tim = Info::tim }; };
+    template<typename Src> struct Trigger  { typedef SrcInfo<Src> Info; enum { smcrMsk = Info::smcrMsk, smcrVal = uint32_t(Info::smcrVal) | (6 << TIM_SMCR_SMS_Pos), tim = Info::tim }; };
+    template<typename Src> struct External { typedef SrcInfo<Src> Info; enum { smcrMsk = Info::smcrMsk, smcrVal = uint32_t(Info::smcrVal) | (7 << TIM_SMCR_SMS_Pos), tim = Info::tim }; };
     template<typename... Args> struct SourceOptions;
     template<> struct SourceOptions<> { enum { smcrMsk = 0, smcrVal = 0, tim = 0 }; };
     
@@ -93,18 +105,30 @@ namespace tim_ {
             tim = Arg::tim ? Arg::tim : Next::tim
         };
     };
-    
+
+    // Input capture channel options
+    template<bool en = true> struct Capture { enum { icMask = ((TIM_CCER_CC1E) << 8), icVal = en ? icMask : 0 }; };
+    template<typename... Args> struct InputOptions;
+    template<> struct InputOptions<> { enum { 
+        icVal  = 0, // Default: none
+        icMask = 0
+    };};
+    template<typename Arg, typename... Args> struct InputOptions<Arg, Args...> {
+        typedef InputOptions<Args...> Next;
+        enum { 
+            icMask = uint32_t(Next::icMask) | uint32_t(Arg::icMask),
+            icVal = uint32_t(Next::icVal) | uint32_t(Arg::icVal)// ? uint32_t(Arg::flag) : 0)
+        };
+    };
+
     // Output compare channel options
     struct Fast          { enum { ocVal = TIM_CCMR1_OC1FE, ocMask = ocVal }; };
     struct PreloadCCR    { enum { ocVal = TIM_CCMR1_OC1PE, ocMask = ocVal }; };
     struct ClearOnETRF   { enum { ocVal = TIM_CCMR1_OC1CE, ocMask = ocVal }; };
     template<bool en = true> struct EnableIO { enum { ocMask = ((TIM_CCER_CC1E) << 8), ocVal = en ? ocMask : 0 }; };
-    template<bool inv = true> struct Invert { enum { ocMask = ((TIM_CCER_CC1P) << 8), ocVal = inv ? ocMask : 0 }; };
+    template<bool inv = true> struct Invert { enum { ocMask = ((TIM_CCER_CC1P) << 8), ocVal = inv ? ocMask : 0, icMask = ocMask, icVal = ocVal }; };
     enum OutputCompareEnum { Frozen = 0, Match = 1, NotMatch = 2, Toggle = 3, Low = 4, High = 5, PWM1 = 6, PWM2 = 7 };
-    
-    //template<typename ModeType, ModeType mode> struct Mode;
-    //template<OutputCompareMode mode> struct Mode<OutputCompareMode, mode> {enum { ocVal = (uint32_t(mode) << TIM_CCMR1_OC1M_Pos), ocMask = TIM_CCMR1_OC1M_Msk }; };
-    
+        
     template<typename... Args> struct OutputOptions;
     template<> struct OutputOptions<> { enum { 
         ocVal = 0,  // Default: no fast, no preload, no clear, selection output
@@ -149,7 +173,7 @@ GET_TS(TIM8, TIM5, 3)
 GET_TS(TIM5, TIM3, 2)
 #endif
 
-template<uintptr_t tim, typename Clock, const Clock *clock = nullptr>
+template<uintptr_t tim, typename Clock, const Clock *clock>
 struct Timer
 {
     static inline constexpr uintptr_t getTim() { return tim; }
@@ -175,9 +199,8 @@ struct Timer
         typedef tim_::SourceOptions<Args...> O;
         uint32_t msk = O::smcrMsk, val = O::smcrVal;
         if (O::tim) {
-            //msk |= TIM_SMCR_TS;
-            //val |= getTS<O::tim, tim>();
-            p().SMCR = (p().SMCR & ~TIM_SMCR_TS) | getTS<O::tim, tim>();
+            msk |= TIM_SMCR_TS;
+            val |= getTS<O::tim, tim>();
         }
         p().SMCR = (p().SMCR & ~msk) | val;
     }
@@ -278,6 +301,17 @@ public:
         DupValues<(mask >> 2), 8, ccmrMask, ccmrVal>::patch(Timer::p().CCMR1);
         DupValues<mask,        4, ccerMask, ccerVal>::patch(Timer::p().CCER);
     }
+    template<typename... Args> static inline void configureInput()
+    {
+        typedef tim_::InputOptions<Args...> O;
+        constexpr uint32_t icVal  = (O::icMask & TIM_CCMR1_CC1S_Msk) ? O::icVal : (O::icVal | TIM_CCMR1_CC1S_0); // Set default input
+        constexpr uint32_t icMask = O::icMask | TIM_CCMR1_CC1S_Msk; 
+        constexpr uint8_t ccmrVal = (icVal & 0xFF), ccmrMask = (icMask & 0xFF); 
+        constexpr uint8_t ccerVal = (icVal >> 8), ccerMask = (icMask >> 8);
+        DupValues<mask & 3,    8, ccmrMask, ccmrVal>::patch(Timer::p().CCMR1);
+        DupValues<(mask >> 2), 8, ccmrMask, ccmrVal>::patch(Timer::p().CCMR1);
+        DupValues<mask,        4, ccerMask, ccerVal>::patch(Timer::p().CCER);        
+    }
 };
 
 template<class Timer_, uint8_t channel>
@@ -292,6 +326,18 @@ public:
 
 #define TIM_REMAP(tim, ch, port, pin, mask, val) template<typename Clock, const Clock *clock> struct Remap<TimerChannel<Timer<uintptr_t(tim), Clock, clock>, ch>, Pin<uintptr_t(port), pin>> { enum { maprMsk = mask, maprVal = val }; }
 TIM_REMAP(TIM2, 2, GPIOB, 3, AFIO_MAPR_TIM2_REMAP_0, AFIO_MAPR_TIM2_REMAP_0);
+
+// TIM3
+TIM_REMAP(TIM3, 1, GPIOA, 6, AFIO_MAPR_TIM3_REMAP, 0);
+TIM_REMAP(TIM3, 2, GPIOA, 7, AFIO_MAPR_TIM3_REMAP, 0);
+TIM_REMAP(TIM3, 1, GPIOB, 4, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP_1);
+TIM_REMAP(TIM3, 2, GPIOB, 5, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP_1);
+TIM_REMAP(TIM3, 3, GPIOB, 0, AFIO_MAPR_TIM3_REMAP_0, 0);
+TIM_REMAP(TIM3, 4, GPIOB, 1, AFIO_MAPR_TIM3_REMAP_0, 0);
+TIM_REMAP(TIM3, 1, GPIOC, 6, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP);
+TIM_REMAP(TIM3, 2, GPIOC, 7, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP);
+TIM_REMAP(TIM3, 3, GPIOC, 8, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP);
+TIM_REMAP(TIM3, 4, GPIOC, 9, AFIO_MAPR_TIM3_REMAP, AFIO_MAPR_TIM3_REMAP);
 
 // TIM4
 TIM_REMAP(TIM4, 1, GPIOB, 6, AFIO_MAPR_TIM4_REMAP, 0);
