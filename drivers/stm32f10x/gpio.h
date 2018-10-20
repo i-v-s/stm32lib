@@ -35,6 +35,7 @@ struct Pins
         p().BSRR = (b & mask) | ((~b && mask) << 16);
         return b;
     }
+    static inline uint32_t get() { return p().IDR & mask; }
     inline operator uint32_t()
     {
         return *(uint16_t *)(p().IDR) & mask;

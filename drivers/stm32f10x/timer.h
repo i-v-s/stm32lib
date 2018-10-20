@@ -280,17 +280,29 @@ public:
     }
 };
 
-template<class Timer, uint8_t channel>
-class TimerChannel : public TimerChannels<Timer, (1 << (channel - 1))>
+template<class Timer_, uint8_t channel>
+class TimerChannel : public TimerChannels<Timer_, (1 << (channel - 1))>
 {
     static_assert(channel >= 1 && channel <= 4, "Wrong channel number");
 public:
+    typedef Timer_ Timer;
     static inline constexpr __IO uint32_t &ccr() { return Timer::template ccr<channel>(); }
     enum { idx = channel };
 };
 
 #define TIM_REMAP(tim, ch, port, pin, mask, val) template<typename Clock, const Clock *clock> struct Remap<TimerChannel<Timer<uintptr_t(tim), Clock, clock>, ch>, Pin<uintptr_t(port), pin>> { enum { maprMsk = mask, maprVal = val }; }
 TIM_REMAP(TIM2, 2, GPIOB, 3, AFIO_MAPR_TIM2_REMAP_0, AFIO_MAPR_TIM2_REMAP_0);
+
+// TIM4
+TIM_REMAP(TIM4, 1, GPIOB, 6, AFIO_MAPR_TIM4_REMAP, 0);
+TIM_REMAP(TIM4, 2, GPIOB, 7, AFIO_MAPR_TIM4_REMAP, 0);
+TIM_REMAP(TIM4, 3, GPIOB, 8, AFIO_MAPR_TIM4_REMAP, 0);
+TIM_REMAP(TIM4, 4, GPIOB, 9, AFIO_MAPR_TIM4_REMAP, 0);
+TIM_REMAP(TIM4, 1, GPIOD, 12, AFIO_MAPR_TIM4_REMAP, AFIO_MAPR_TIM4_REMAP);
+TIM_REMAP(TIM4, 2, GPIOD, 13, AFIO_MAPR_TIM4_REMAP, AFIO_MAPR_TIM4_REMAP);
+TIM_REMAP(TIM4, 3, GPIOD, 14, AFIO_MAPR_TIM4_REMAP, AFIO_MAPR_TIM4_REMAP);
+TIM_REMAP(TIM4, 4, GPIOD, 15, AFIO_MAPR_TIM4_REMAP, AFIO_MAPR_TIM4_REMAP);
+
 
 //template<typename Clock, const Clock *clock> struct Remap<TimerChannel<Timer<uintptr_t(TIM2), Clock, clock>, 2>, Pin<uintptr_t(GPIOB), 3>> { enum { maprMsk = AFIO_MAPR_TIM2_REMAP_0, maprVal = maprMsk }; };
 
