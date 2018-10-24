@@ -276,8 +276,7 @@ template<typename Dev, typename... Devs> struct DevList<Dev, Devs...>
 };
 
 
-template<typename... Devices>
-void enableDevices()
+template<typename... Devices> void enableDevices()
 {
     typedef DevList<Devices...> L;
     static_assert(L::ahb | L::apb1 | L::apb2, "Nothing to enable!");
@@ -285,6 +284,16 @@ void enableDevices()
     if (L::apb1) RCC->APB1ENR |= L::apb1;
     if (L::apb2) RCC->APB2ENR |= L::apb2;
 }
+
+template<typename... Devices> void disableDevices()
+{
+    typedef DevList<Devices...> L;
+    static_assert(L::ahb | L::apb1 | L::apb2, "Nothing to disable!");
+    if (L::ahb) RCC->AHBENR &= ~L::ahb;
+    if (L::apb1) RCC->APB1ENR &= ~L::apb1;
+    if (L::apb2) RCC->APB2ENR &= ~L::apb2;
+}
+
 
 template<uintptr_t device>
 ClockSource getClockSource();

@@ -8,7 +8,16 @@
 template<typename Src, typename Dst, typename... Args> struct Link;
 
 namespace dma_ {    
-    template<typename ccr, typename count=NoValue, typename cpar=NoValue, typename cmar=NoValue> struct ChannelCfg { typedef ccr CCR; };
+    template<typename ccr, typename count = NoValue, typename cpar = NoValue, typename cmar = NoValue> struct ChannelCfg 
+    { 
+        typedef ccr CCR; 
+        static inline void apply(DMA_Channel_TypeDef &channel) {
+            ccr  ::apply(channel.CCR);
+            count::apply(channel.CNDTR);
+            cpar ::apply(channel.CPAR);
+            cmar ::apply(channel.CMAR);
+        }
+    };
     template<uintptr_t dma_, int ch> struct ChannelId { enum { dma = dma_, channel = ch}; };
     template<bool en = true> using Enable = ChannelCfg<Bits<uint32_t, DMA_CCR_EN, en ? DMA_CCR_EN : 0>>;
 }
@@ -17,7 +26,7 @@ template<typename ccr1, typename ccr2, typename c1, typename c2, typename p1, ty
     struct Merge<dma_::ChannelCfg<ccr1, c1, p1, m1>, dma_::ChannelCfg<ccr2, c2, p2, m2>> {
         typedef dma_::ChannelCfg<
             typename Merge<ccr1, ccr2>::Result, 
-            typename Merge<c1, c2>::Result, 
+            typename Merge<c1, c2>::Result,
             typename Merge<p1, p2>::Result, 
             typename Merge<m1, m2>::Result
         > Result;

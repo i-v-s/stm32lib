@@ -10,8 +10,28 @@ template<typename T, T mask, T value> struct Bits {
     template<typename Reg> static inline void apply(Reg &reg) { if (mask) reg = (reg & ~mask) | value; }
 };
 template<uint32_t mask, uint32_t value> using Bits32 = Bits<uint32_t, mask, value>;
-template<typename T, T value> struct Value { enum { v = value }; };
-template<typename... Args> struct List {};
+template<typename T, T value> struct Value { enum { v = value }; template<typename Reg> static inline void apply(Reg &reg) { reg = value; }};
+template<typename... Args> struct List;/* {
+    template<template<typename> typename apply> static inline void forEach();
+};*/
+template<typename Arg, typename... Args> 
+struct List<Arg, Args...>
+{
+    template<template<typename> typename apply>
+    static inline void forEach() 
+    { 
+        apply<Arg>(); 
+        List<Args...>::forEach();
+    }
+};
+template<> struct List<>
+{
+    template<template<typename> typename apply> 
+    static inline void forEach() 
+    { 
+    }
+};
+
 struct NoValue { enum { m = 0, v = 0 }; template<typename Reg> static inline void apply(Reg &) {}; };
 using None = NoValue;
 using NV = NoValue;
@@ -31,6 +51,9 @@ template<typename T, T m1, T v1, T m2, T v2> struct Merge<Bits<T, m1, v1>, Bits<
     static_assert(!((v1 ^ v2) & m1 & m2), "Unable to merge Bits");
     typedef Bits<T, m1 | m2, v1 | v2> Result;
 };
+template<typename T, T m, T v> struct Merge<Bits<T, m, v>, NoValue> { typedef Bits<T, m, v> Result; };
+template<typename T, T m, T v> struct Merge<NoValue, Bits<T, m, v>> { typedef Bits<T, m, v> Result; };
+
 template<typename T, T value> struct Merge<Value<T, value>, NoValue> { using Result = Value<T, value>; };
 template<typename T, T value> struct Merge<NoValue, Value<T, value>> { using Result = Value<T, value>; };
 template<> struct Merge<NoValue, NoValue> { using Result = NoValue; };
@@ -42,6 +65,20 @@ template<typename... Args> struct Reduce_;
 template<typename... Args> using Reduce = typename Reduce_<Args...>::Result;
 template<typename Arg> struct Reduce_<Arg> { typedef Arg Result; };
 template<typename... Args, typename Arg> struct Reduce_<Arg, Args...> { typedef typename Merge<Arg, Reduce<Args...>>::Result Result; };
+
+// Iterate
+template<typename F, typename List> struct Iterate;
+template<typename F, typename Arg, typename... Args> struct Iterate<F, List<Arg, Args...>>
+{
+    static inline void apply()
+    {
+        F::template apply<Arg>();
+        Iterate<F, List<Args...>>::apply();
+    }
+};
+template<typename F> struct Iterate<F, List<>> { static inline void apply() {}; };
+
+
 
 // For each
 //template<typename... Args>
