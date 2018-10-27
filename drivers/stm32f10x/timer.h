@@ -85,6 +85,9 @@ namespace tim_ {
         static_assert(channel == 1 || channel == 2, "Wrong source channel");
         enum { smcrMsk = TIM_SMCR_SMS_Msk | TIM_SMCR_TS_Msk, smcrVal = (channel + 4) << TIM_SMCR_TS_Pos, tim = 0/*Timer::getTim()*/ }; 
     };
+    struct TI1EdgeDetector;
+    template<> struct SrcInfo<TI1EdgeDetector>
+    { enum { smcrMsk = TIM_SMCR_SMS_Msk | TIM_SMCR_TS_Msk, smcrVal = 4 << TIM_SMCR_TS_Pos, tim = 0/*Timer::getTim()*/ }; };
     
     struct InternalClock { enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = 0, tim = 0 }; };
     template<int mode> struct Encoder { static_assert(mode >= 1 && mode <= 3, "Wrong encoder mode!"); enum { smcrMsk = TIM_SMCR_SMS_Msk, smcrVal = mode << TIM_SMCR_SMS_Pos, tim = 0 }; };
@@ -177,8 +180,8 @@ template<uintptr_t tim, typename Clock, const Clock *clock>
 struct Timer
 {
     static inline constexpr uintptr_t getTim() { return tim; }
-    static inline void update() { p().EGR = TIM_EGR_UG; };
-    
+    static inline void update() { p().EGR = TIM_EGR_UG; }
+    static inline uint32_t getCounter() { return p().CNT; }
     template<typename... Args> static inline void configure()
     {
         typedef Options2<Args...> O;
@@ -325,7 +328,13 @@ public:
 };
 
 #define TIM_REMAP(tim, ch, port, pin, mask, val) template<typename Clock, const Clock *clock> struct Remap<TimerChannel<Timer<uintptr_t(tim), Clock, clock>, ch>, Pin<uintptr_t(port), pin>> { enum { maprMsk = mask, maprVal = val }; }
+
+// TIM2
+TIM_REMAP(TIM2, 1, GPIOA, 0,  AFIO_MAPR_TIM2_REMAP_0, 0);
+TIM_REMAP(TIM2, 1, GPIOA, 15, AFIO_MAPR_TIM2_REMAP_0, AFIO_MAPR_TIM2_REMAP_0);
+TIM_REMAP(TIM2, 2, GPIOA, 1, AFIO_MAPR_TIM2_REMAP_0, 0);
 TIM_REMAP(TIM2, 2, GPIOB, 3, AFIO_MAPR_TIM2_REMAP_0, AFIO_MAPR_TIM2_REMAP_0);
+
 
 // TIM3
 TIM_REMAP(TIM3, 1, GPIOA, 6, AFIO_MAPR_TIM3_REMAP, 0);

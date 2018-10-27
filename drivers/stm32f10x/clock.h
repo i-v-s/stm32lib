@@ -35,6 +35,7 @@ template<> void inline enable<CS_HSI>()
 //////// setClockSource
 template<ClockSource cs> void setClockSource();
 
+#ifdef WITH_BODY
 template<> void setClockSource<CS_PLL>()
 {
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLL;
@@ -50,6 +51,7 @@ template<> void setClockSource<CS_HSI>()
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_HSI;
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI);
 }
+#endif
 
 template<ClockSource cs, uint32_t in, uint32_t out>
 inline void configurePLL()
