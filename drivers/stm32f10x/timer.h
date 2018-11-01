@@ -111,6 +111,7 @@ namespace tim_ {
 
     // Input capture channel options
     template<bool en = true> struct Capture { enum { icMask = ((TIM_CCER_CC1E) << 8), icVal = en ? icMask : 0 }; };
+    template<uint8_t filter> struct Filter { static_assert(filter < 16, "Wrong filter value"); enum { icMask = TIM_CCMR1_IC1F_Msk, icVal = (filter << TIM_CCMR1_IC1F_Pos) }; };
     template<typename... Args> struct InputOptions;
     template<> struct InputOptions<> { enum { 
         icVal  = 0, // Default: none
